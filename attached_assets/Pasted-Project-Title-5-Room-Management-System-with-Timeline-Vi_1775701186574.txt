@@ -1,0 +1,35 @@
+Project Title: 5-Room Management System with Timeline View & Flexible Pricing
+Description:
+"I want to build a full-stack room booking management system for a host who manages 5 rooms. The app features a professional Timeline (Gantt Chart) view to manage bookings. The User Interface must be in Thai, but the code and logic should be in English."
+1. Room Configuration:
+• Total Rooms: 5 specific rooms (named: ห้อง 01, ห้อง 02, ห้อง 03, ห้อง 04, ห้อง 05).
+• Capacity: Each room is for 2 guests. Extra guests require an extra bed fee.
+2. Complex Pricing Logic (Asia/Bangkok Timezone):
+• Short-stay (ชั่วคราว): 300 THB for the first 3 hours.
+• Daily (รายวัน): 600 THB per 24 hours. (If stay is multiple days, it's Days × 600).
+• Overtime (เกินเวลา): 100 THB for every extra hour.
+• Logic: If a stay is longer than 3 hours but less than 24, charge 300 + (extra hours × 100), but cap it at 600 THB for that day.
+• Multi-day Overtime: If a stay is 1 day and 2 hours, charge 600 + (2 × 100) = 800 THB.
+• Extra Bed (เตียงเสริม): 100 THB per extra person per night. (Calculated as: Extra Persons × 100 × Number of Nights).
+3. Key Features:
+• Timeline Dashboard (Thai UI):
+• A horizontal scrollable timeline showing Room 01-05 on the Y-axis and Dates/Hours on the X-axis.
+• Bookings are displayed as colored blocks (Green for Paid, Yellow for Pay at Counter).
+• Click an empty slot to 'Add Booking'. Click a block to 'Edit/Delete' or see details.
+• Booking Form (Thai UI):
+• Fields: Guest Name (ชื่อผู้เช่า), Number of Guests (จำนวนผู้เข้าพัก), Check-in/Check-out Date & Time.
+• Payment Method: "Prepaid" (จ่ายก่อน) or "Pay at Counter" (จ่ายหน้าเคาน์เตอร์).
+• Real-time Total Price calculation shown before saving.
+• Conflict Prevention: The system must block any overlapping bookings for the same room.
+4. Technical Stack:
+• Frontend: React, Tailwind CSS, and a Timeline component (like FullCalendar Timeline or a custom Gantt view).
+• Backend: Node.js (Express).
+• Database: PostgreSQL (via Replit).
+• Timezone: Strictly use Asia/Bangkok (GMT+7).
+5. Localization (Thai Labels):
+• Please ensure all UI elements use Thai. Examples:
+• "Timeline" -> "ตารางการจอง"
+• "Room Price" -> "ค่าห้อง"
+• "Extra Bed" -> "เตียงเสริม"
+• "Total Price" -> "ยอดรวมที่ต้องจ่าย"
+• "Booking Details" -> "รายละเอียดการจอง"
