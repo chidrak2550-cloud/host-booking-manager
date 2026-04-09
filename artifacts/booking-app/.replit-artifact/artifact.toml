@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ระบบจัดการการจอง"
+version = "1.0.0"
+id = "artifacts/booking-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20508
+
+[services.development]
+run = "pnpm --filter @workspace/booking-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/booking-app", "run", "build" ]
+publicDir = "artifacts/booking-app/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20508"
+BASE_PATH = "/"
