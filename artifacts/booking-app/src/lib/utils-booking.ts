@@ -1,5 +1,20 @@
 import { format, differenceInHours } from "date-fns";
 
+export function formatDuration(checkInAt: string | Date, checkOutAt: string | Date): string {
+  const checkIn = new Date(checkInAt);
+  const checkOut = new Date(checkOutAt);
+  const totalMinutes = Math.max(0, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60)));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} วัน`);
+  if (hours > 0) parts.push(`${hours} ชั่วโมง`);
+  if (minutes > 0 && days === 0) parts.push(`${minutes} นาที`);
+  return parts.length > 0 ? parts.join(" ") : "0 นาที";
+}
+
 export function formatThaiDateTime(isoString: string | Date): string {
   const date = typeof isoString === "string" ? new Date(isoString) : isoString;
   return new Intl.DateTimeFormat("th-TH", {

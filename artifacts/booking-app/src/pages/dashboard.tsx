@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { formatThaiCurrency, formatThaiDateTime } from "@/lib/utils-booking";
+import { formatThaiCurrency, formatThaiDateTime, formatDuration } from "@/lib/utils-booking";
 import { StatusBadge } from "@/components/status-badge";
 import { useListBookings, getListBookingsQueryKey, useGetBookingsSummary, getGetBookingsSummaryQueryKey } from "@workspace/api-client-react";
 import { FileText, Search, PlusCircle, Clock, CheckCircle2, CircleDollarSign, LogOut } from "lucide-react";
@@ -153,6 +153,7 @@ export default function Dashboard() {
                       <TableHead className="w-[80px]">รหัส</TableHead>
                       <TableHead>ชื่อผู้เช่า</TableHead>
                       <TableHead>เวลาเช็คอิน</TableHead>
+                      <TableHead>ระยะเวลาพัก</TableHead>
                       <TableHead>แพ็กเกจ</TableHead>
                       <TableHead>สถานะ</TableHead>
                       <TableHead className="text-right">จำนวนเงินรวม</TableHead>
@@ -167,6 +168,9 @@ export default function Dashboard() {
                         </TableCell>
                         <TableCell className="font-medium">{booking.guestName}</TableCell>
                         <TableCell>{formatThaiDateTime(booking.checkInAt)}</TableCell>
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {formatDuration(booking.checkInAt, booking.checkOutAt)}
+                        </TableCell>
                         <TableCell>
                           {booking.packageType === "daily" ? "รายวัน" : "พักสั้น"}
                         </TableCell>
