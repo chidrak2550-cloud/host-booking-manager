@@ -9,8 +9,15 @@ import type { CreateBookingBodyPackageType } from "./createBookingBodyPackageTyp
 import type { CreateBookingBodyPaymentMethod } from "./createBookingBodyPaymentMethod";
 
 export interface CreateBookingBody {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  roomId: number;
   /** @minLength 1 */
   guestName: string;
+  /** @minimum 1 */
+  numGuests?: number;
   checkInAt: Date;
   checkOutAt: Date;
   packageType: CreateBookingBodyPackageType;

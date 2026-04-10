@@ -241,8 +241,16 @@ export default function BookingDetail() {
                 </CardHeader>
                 <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">ห้องพัก</Label>
+                    <p className="font-medium text-lg mt-1">ห้อง {booking.roomId.toString().padStart(2, '0')}</p>
+                  </div>
+                  <div>
                     <Label className="text-muted-foreground text-xs uppercase tracking-wider">ชื่อผู้เช่า</Label>
                     <p className="font-medium text-lg mt-1">{booking.guestName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">จำนวนผู้เข้าพัก</Label>
+                    <p className="font-medium text-lg mt-1">{booking.numGuests} คน</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase tracking-wider">แพ็กเกจ</Label>
@@ -373,6 +381,13 @@ export default function BookingDetail() {
                         </span>
                       </span>
                       <span className="font-medium text-amber-700">{formatThaiCurrency(booking.overtimeFee)}</span>
+                    </div>
+                  )}
+
+                  {booking.extraBedFee > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-amber-700 font-medium">เตียงเสริม</span>
+                      <span className="font-medium text-amber-700">{formatThaiCurrency(booking.extraBedFee)}</span>
                     </div>
                   )}
 

@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,12 +15,21 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns all bookings sorted by check-in date
  * @summary List all bookings
  */
+export const ListBookingsQueryParams = zod.object({
+  roomId: zod.coerce.number().optional(),
+  startDate: zod.coerce.string().optional(),
+  endDate: zod.coerce.string().optional(),
+});
+
+export const listBookingsResponseRoomIdMax = 5;
+
 export const ListBookingsResponseItem = zod.object({
   id: zod.number(),
+  roomId: zod.number().min(1).max(listBookingsResponseRoomIdMax),
   guestName: zod.string(),
+  numGuests: zod.number().min(1),
   checkInAt: zod.coerce.date(),
   checkOutAt: zod.coerce.date(),
   packageType: zod.enum(["daily", "short_stay"]),
@@ -29,6 +37,7 @@ export const ListBookingsResponseItem = zod.object({
   status: zod.enum(["pending", "paid", "checked_out"]),
   basePrice: zod.number(),
   overtimeFee: zod.number(),
+  extraBedFee: zod.number(),
   totalPrice: zod.number(),
   overtimeHours: zod.number(),
   notes: zod.string().nullish(),
@@ -40,9 +49,14 @@ export const ListBookingsResponse = zod.array(ListBookingsResponseItem);
 /**
  * @summary Create a new booking
  */
+export const createBookingBodyRoomIdMax = 5;
+
+export const createBookingBodyNumGuestsDefault = 1;
 
 export const CreateBookingBody = zod.object({
+  roomId: zod.number().min(1).max(createBookingBodyRoomIdMax),
   guestName: zod.string().min(1),
+  numGuests: zod.number().min(1).default(createBookingBodyNumGuestsDefault),
   checkInAt: zod.coerce.date(),
   checkOutAt: zod.coerce.date(),
   packageType: zod.enum(["daily", "short_stay"]),
@@ -57,9 +71,13 @@ export const GetBookingParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const getBookingResponseRoomIdMax = 5;
+
 export const GetBookingResponse = zod.object({
   id: zod.number(),
+  roomId: zod.number().min(1).max(getBookingResponseRoomIdMax),
   guestName: zod.string(),
+  numGuests: zod.number().min(1),
   checkInAt: zod.coerce.date(),
   checkOutAt: zod.coerce.date(),
   packageType: zod.enum(["daily", "short_stay"]),
@@ -67,6 +85,7 @@ export const GetBookingResponse = zod.object({
   status: zod.enum(["pending", "paid", "checked_out"]),
   basePrice: zod.number(),
   overtimeFee: zod.number(),
+  extraBedFee: zod.number(),
   totalPrice: zod.number(),
   overtimeHours: zod.number(),
   notes: zod.string().nullish(),
@@ -75,7 +94,7 @@ export const GetBookingResponse = zod.object({
 });
 
 /**
- * @summary Update a booking (status, checkout time)
+ * @summary Update a booking
  */
 export const UpdateBookingParams = zod.object({
   id: zod.coerce.number(),
@@ -85,11 +104,16 @@ export const UpdateBookingBody = zod.object({
   status: zod.enum(["pending", "paid", "checked_out"]).optional(),
   checkOutAt: zod.coerce.date().optional(),
   notes: zod.string().nullish(),
+  numGuests: zod.number().min(1).optional(),
 });
+
+export const updateBookingResponseRoomIdMax = 5;
 
 export const UpdateBookingResponse = zod.object({
   id: zod.number(),
+  roomId: zod.number().min(1).max(updateBookingResponseRoomIdMax),
   guestName: zod.string(),
+  numGuests: zod.number().min(1),
   checkInAt: zod.coerce.date(),
   checkOutAt: zod.coerce.date(),
   packageType: zod.enum(["daily", "short_stay"]),
@@ -97,6 +121,7 @@ export const UpdateBookingResponse = zod.object({
   status: zod.enum(["pending", "paid", "checked_out"]),
   basePrice: zod.number(),
   overtimeFee: zod.number(),
+  extraBedFee: zod.number(),
   totalPrice: zod.number(),
   overtimeHours: zod.number(),
   notes: zod.string().nullish(),

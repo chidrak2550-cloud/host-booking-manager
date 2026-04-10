@@ -14,14 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { calculatePricing, formatThaiCurrency } from "@/lib/utils-booking";
+import { calculatePricing, formatThaiCurrency, ROOMS } from "@/lib/utils-booking";
 import { useCreateBooking, getListBookingsQueryKey, getGetBookingsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Save, ReceiptText } from "lucide-react";
+import { ArrowLeft, Save, ReceiptText, DoorOpen, UserPlus } from "lucide-react";
 
-// The schema matching the backend API requirements
 const bookingSchema = z.object({
+  roomId: z.coerce.number().min(1).max(5),
   guestName: z.string().min(1, "กรุณาระบุชื่อผู้เช่า"),
+  numGuests: z.coerce.number().min(1).max(10),
   checkInAt: z.string().min(1, "กรุณาระบุเวลาเช็คอิน"),
   checkOutAt: z.string().min(1, "กรุณาระบุเวลาเช็คเอาต์"),
   packageType: z.enum(["daily", "short_stay"]),
@@ -40,11 +41,11 @@ export default function NewBooking() {
     basePrice: 0,
     overtimeHours: 0,
     overtimeFee: 0,
+    extraBedFee: 0,
     totalPrice: 0,
   });
 
   const now = new Date();
-  // Round to nearest 15 mins for default check-in
   now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
   const formattedNow = format(now, "yyyy-MM-dd'T'HH:mm");
   const formattedNextDay = format(addHours(now, 24), "yyyy-MM-dd'T'HH:mm");
@@ -52,7 +53,9 @@ export default function NewBooking() {
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
+      roomId: 1,
       guestName: "",
+      numGuests: 1,
       checkInAt: formattedNow,
       checkOutAt: formattedNextDay,
       packageType: "daily",
@@ -72,12 +75,20 @@ export default function NewBooking() {
         });
         setLocation("/");
       },
-      onError: (err) => {
-        toast({
-          variant: "destructive",
-          title: "เกิดข้อผิดพลาด",
-          description: err.message || "ไม่สามารถสร้างการจองได้",
-        });
+      onError: (err: any) => {
+        if (err.message?.includes('409') || err.message?.includes('ซ้อนทับ')) {
+          toast({
+            variant: "destructive",
+            title: "ห้องไม่ว่าง",
+            description: "ห้องนี้มีการจองซ้อนทับในช่วงเวลาที่เลือก กรุณาเลือกห้องอื่นหรือเวลาอื่น",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "เกิดข้อผิดพลาด",
+            description: err.message || "ไม่สามารถสร้างการจองได้",
+          });
+        }
       }
     }
   });
@@ -85,24 +96,19 @@ export default function NewBooking() {
   const checkInAt = form.watch("checkInAt");
   const checkOutAt = form.watch("checkOutAt");
   const packageType = form.watch("packageType");
+  const numGuests = form.watch("numGuests");
 
-  // Auto-update check-out time when package changes (only for new setups to be helpful)
-  // Or just update pricing preview whenever these 3 change
   useEffect(() => {
     if (checkInAt && checkOutAt && packageType) {
       try {
-        const pricing = calculatePricing(checkInAt, checkOutAt, packageType);
+        const pricing = calculatePricing(checkInAt, checkOutAt, packageType, numGuests || 1);
         setPricingPreview(pricing);
-      } catch (e) {
-        // invalid dates, skip
-      }
+      } catch (e) {}
     }
-  }, [checkInAt, checkOutAt, packageType]);
+  }, [checkInAt, checkOutAt, packageType, numGuests]);
 
   const handlePackageChange = (val: "daily" | "short_stay") => {
     form.setValue("packageType", val);
-    
-    // Auto-adjust check-out time based on package choice
     if (checkInAt) {
       const inDate = new Date(checkInAt);
       if (!isNaN(inDate.getTime())) {
@@ -115,11 +121,9 @@ export default function NewBooking() {
   const onSubmit = (data: BookingFormValues) => {
     const payload = {
       ...data,
-      // API expects ISO string
       checkInAt: new Date(data.checkInAt).toISOString(),
       checkOutAt: new Date(data.checkOutAt).toISOString(),
     };
-    
     createBooking.mutate({ data: payload });
   };
 
@@ -143,13 +147,54 @@ export default function NewBooking() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Left Column - Form */}
                 <div className="lg:col-span-2 space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">ข้อมูลผู้เช่า</CardTitle>
+                      <CardTitle className="text-lg">ข้อมูลห้องและผู้เช่า</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="roomId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ห้องพัก</FormLabel>
+                              <Select onValueChange={(v) => field.onChange(parseInt(v, 10))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="เลือกห้องพัก" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {ROOMS.map(r => (
+                                    <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="numGuests"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>จำนวนผู้เข้าพัก</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={1} max={10} {...field} />
+                              </FormControl>
+                              <p className="text-[10px] text-muted-foreground leading-tight mt-1">
+                                ห้องรองรับ 2 คน เกินจาก 2 คน คิดค่าเตียงเสริม 100 บาท/คน/คืน
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
                       <FormField
                         control={form.control}
                         name="guestName"
@@ -200,7 +245,7 @@ export default function NewBooking() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>ประเภทแพ็กเกจ</FormLabel>
-                              <Select onValueChange={handlePackageChange} defaultValue={field.value}>
+                              <Select onValueChange={handlePackageChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="เลือกประเภทแพ็กเกจ" />
@@ -221,7 +266,7 @@ export default function NewBooking() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>วิธีการชำระเงิน</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="เลือกวิธีการชำระเงิน" />
@@ -265,7 +310,6 @@ export default function NewBooking() {
                   </Card>
                 </div>
 
-                {/* Right Column - Pricing Preview */}
                 <div className="lg:col-span-1">
                   <Card className="sticky top-6 border-primary/20 bg-primary/5">
                     <CardHeader className="pb-4">
@@ -284,17 +328,24 @@ export default function NewBooking() {
                           <span className="font-medium">{formatThaiCurrency(pricingPreview.basePrice)}</span>
                         </div>
                         
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            ค่าเกินเวลา
-                            {pricingPreview.overtimeHours > 0 && (
+                        {pricingPreview.overtimeFee > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              ค่าเกินเวลา
                               <span className="text-xs bg-amber-100 text-amber-800 px-1.5 rounded-sm">
                                 {pricingPreview.overtimeHours} ชม.
                               </span>
-                            )}
-                          </span>
-                          <span className="font-medium">{formatThaiCurrency(pricingPreview.overtimeFee)}</span>
-                        </div>
+                            </span>
+                            <span className="font-medium">{formatThaiCurrency(pricingPreview.overtimeFee)}</span>
+                          </div>
+                        )}
+                        
+                        {pricingPreview.extraBedFee > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-amber-700">ค่าเตียงเสริม</span>
+                            <span className="font-medium text-amber-700">{formatThaiCurrency(pricingPreview.extraBedFee)}</span>
+                          </div>
+                        )}
                       </div>
                       
                       <Separator className="bg-primary/20" />

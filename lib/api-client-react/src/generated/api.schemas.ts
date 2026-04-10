@@ -35,7 +35,14 @@ export const BookingStatus = {
 
 export interface Booking {
   id: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  roomId: number;
   guestName: string;
+  /** @minimum 1 */
+  numGuests: number;
   checkInAt: string;
   checkOutAt: string;
   packageType: BookingPackageType;
@@ -43,6 +50,7 @@ export interface Booking {
   status: BookingStatus;
   basePrice: number;
   overtimeFee: number;
+  extraBedFee: number;
   totalPrice: number;
   overtimeHours: number;
   notes?: string | null;
@@ -67,8 +75,15 @@ export const CreateBookingBodyPaymentMethod = {
 } as const;
 
 export interface CreateBookingBody {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  roomId: number;
   /** @minLength 1 */
   guestName: string;
+  /** @minimum 1 */
+  numGuests?: number;
   checkInAt: string;
   checkOutAt: string;
   packageType: CreateBookingBodyPackageType;
@@ -89,6 +104,8 @@ export interface UpdateBookingBody {
   status?: UpdateBookingBodyStatus;
   checkOutAt?: string;
   notes?: string | null;
+  /** @minimum 1 */
+  numGuests?: number;
 }
 
 export interface BookingsSummary {
@@ -105,3 +122,9 @@ export interface ErrorResponse {
   error: string;
   message: string;
 }
+
+export type ListBookingsParams = {
+  roomId?: number;
+  startDate?: string;
+  endDate?: string;
+};

@@ -11,4 +11,6 @@ export interface UpdateBookingBody {
   status?: UpdateBookingBodyStatus;
   checkOutAt?: Date;
   notes?: string | null;
+  /** @minimum 1 */
+  numGuests?: number;
 }

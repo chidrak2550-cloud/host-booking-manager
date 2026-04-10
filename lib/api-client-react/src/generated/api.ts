@@ -22,6 +22,7 @@ import type {
   CreateBookingBody,
   ErrorResponse,
   HealthStatus,
+  ListBookingsParams,
   UpdateBookingBody,
 } from "./api.schemas";
 
@@ -35,7 +36,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -111,44 +111,59 @@ export function useHealthCheck<
 }
 
 /**
- * Returns all bookings sorted by check-in date
  * @summary List all bookings
  */
-export const getListBookingsUrl = () => {
-  return `/api/bookings`;
+export const getListBookingsUrl = (params?: ListBookingsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/bookings?${stringifiedParams}`
+    : `/api/bookings`;
 };
 
 export const listBookings = async (
+  params?: ListBookingsParams,
   options?: RequestInit,
 ): Promise<Booking[]> => {
-  return customFetch<Booking[]>(getListBookingsUrl(), {
+  return customFetch<Booking[]>(getListBookingsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListBookingsQueryKey = () => {
-  return [`/api/bookings`] as const;
+export const getListBookingsQueryKey = (params?: ListBookingsParams) => {
+  return [`/api/bookings`, ...(params ? [params] : [])] as const;
 };
 
 export const getListBookingsQueryOptions = <
   TData = Awaited<ReturnType<typeof listBookings>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listBookings>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListBookingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBookings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListBookingsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListBookingsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listBookings>>> = ({
     signal,
-  }) => listBookings({ signal, ...requestOptions });
+  }) => listBookings(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listBookings>>,
@@ -169,15 +184,18 @@ export type ListBookingsQueryError = ErrorType<unknown>;
 export function useListBookings<
   TData = Awaited<ReturnType<typeof listBookings>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listBookings>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListBookingsQueryOptions(options);
+>(
+  params?: ListBookingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBookings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBookingsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -360,7 +378,7 @@ export function useGetBooking<
 }
 
 /**
- * @summary Update a booking (status, checkout time)
+ * @summary Update a booking
  */
 export const getUpdateBookingUrl = (id: number) => {
   return `/api/bookings/${id}`;
@@ -424,7 +442,7 @@ export type UpdateBookingMutationBody = BodyType<UpdateBookingBody>;
 export type UpdateBookingMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Update a booking (status, checkout time)
+ * @summary Update a booking
  */
 export const useUpdateBooking = <
   TError = ErrorType<ErrorResponse>,

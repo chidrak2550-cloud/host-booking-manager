@@ -11,7 +11,14 @@ import type { BookingStatus } from "./bookingStatus";
 
 export interface Booking {
   id: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  roomId: number;
   guestName: string;
+  /** @minimum 1 */
+  numGuests: number;
   checkInAt: Date;
   checkOutAt: Date;
   packageType: BookingPackageType;
@@ -19,6 +26,7 @@ export interface Booking {
   status: BookingStatus;
   basePrice: number;
   overtimeFee: number;
+  extraBedFee: number;
   totalPrice: number;
   overtimeHours: number;
   notes?: string | null;

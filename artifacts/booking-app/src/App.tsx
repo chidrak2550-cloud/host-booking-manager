@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import NewBooking from "@/pages/new-booking";
 import BookingDetail from "@/pages/booking-detail";
+import Timeline from "@/pages/timeline";
 
 const queryClient = new QueryClient();
 
@@ -13,6 +14,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/timeline" component={Timeline} />
       <Route path="/new" component={NewBooking} />
       <Route path="/bookings/:id" component={BookingDetail} />
       <Route component={NotFound} />

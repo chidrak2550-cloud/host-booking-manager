@@ -151,6 +151,7 @@ export default function Dashboard() {
                   <TableHeader className="bg-muted/30">
                     <TableRow>
                       <TableHead className="w-[80px]">รหัส</TableHead>
+                      <TableHead className="w-[90px]">ห้อง</TableHead>
                       <TableHead>ชื่อผู้เช่า</TableHead>
                       <TableHead>เวลาเช็คอิน</TableHead>
                       <TableHead>ระยะเวลาพัก</TableHead>
@@ -166,6 +167,7 @@ export default function Dashboard() {
                         <TableCell className="font-medium text-muted-foreground">
                           #{booking.id}
                         </TableCell>
+                        <TableCell className="font-medium">ห้อง {booking.roomId.toString().padStart(2, '0')}</TableCell>
                         <TableCell className="font-medium">{booking.guestName}</TableCell>
                         <TableCell>{formatThaiDateTime(booking.checkInAt)}</TableCell>
                         <TableCell className="text-muted-foreground tabular-nums">

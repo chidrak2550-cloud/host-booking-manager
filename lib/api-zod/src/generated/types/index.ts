@@ -16,5 +16,6 @@ export * from "./createBookingBodyPackageType";
 export * from "./createBookingBodyPaymentMethod";
 export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./listBookingsParams";
 export * from "./updateBookingBody";
 export * from "./updateBookingBodyStatus";

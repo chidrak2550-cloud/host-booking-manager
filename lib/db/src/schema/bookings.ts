@@ -8,7 +8,9 @@ export const bookingStatusEnum = pgEnum("booking_status", ["pending", "paid", "c
 
 export const bookingsTable = pgTable("bookings", {
   id: serial("id").primaryKey(),
+  roomId: integer("room_id").notNull().default(1),
   guestName: text("guest_name").notNull(),
+  numGuests: integer("num_guests").notNull().default(1),
   checkInAt: timestamp("check_in_at", { withTimezone: true }).notNull(),
   checkOutAt: timestamp("check_out_at", { withTimezone: true }).notNull(),
   packageType: packageTypeEnum("package_type").notNull(),
@@ -16,6 +18,7 @@ export const bookingsTable = pgTable("bookings", {
   status: bookingStatusEnum("status").notNull().default("pending"),
   basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull(),
   overtimeFee: numeric("overtime_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  extraBedFee: numeric("extra_bed_fee", { precision: 10, scale: 2 }).notNull().default("0"),
   totalPrice: numeric("total_price", { precision: 10, scale: 2 }).notNull(),
   overtimeHours: integer("overtime_hours").notNull().default(0),
   notes: text("notes"),
