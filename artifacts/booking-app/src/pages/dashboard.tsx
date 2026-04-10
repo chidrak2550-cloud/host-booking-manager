@@ -1,18 +1,154 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { format } from "date-fns";
 import Layout from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { formatThaiCurrency, formatThaiDateTime, formatDuration } from "@/lib/utils-booking";
+import { formatThaiDateTime, formatDuration } from "@/lib/utils-booking";
 import { StatusBadge } from "@/components/status-badge";
 import { useListBookings, getListBookingsQueryKey, useGetBookingsSummary, getGetBookingsSummaryQueryKey } from "@workspace/api-client-react";
-import { FileText, Search, PlusCircle, Clock, CheckCircle2, CircleDollarSign, LogOut } from "lucide-react";
+import { FileText, Search, PlusCircle, Clock, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty";
+
+const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const THAI_DAYS_SHORT = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+type DayType = "daily" | "short_stay" | "both";
+
+function toBangkokDateStr(isoStr: string): string {
+  const date = new Date(isoStr);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date);
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfWeek(year: number, month: number): number {
+  return new Date(year, month, 1).getDay();
+}
+
+function toThaiYear(year: number): number {
+  return year + 543;
+}
+
+interface BookingDay {
+  type: DayType;
+}
+
+function buildBookingDayMap(bookings: Array<{ checkInAt: string; checkOutAt: string }>): Map<string, DayType> {
+  const map = new Map<string, DayType>();
+  for (const b of bookings) {
+    const durationMs = new Date(b.checkOutAt).getTime() - new Date(b.checkInAt).getTime();
+    const isDaily = durationMs >= 24 * 60 * 60 * 1000;
+    const dayStr = toBangkokDateStr(b.checkInAt);
+    const existing = map.get(dayStr);
+    if (!existing) {
+      map.set(dayStr, isDaily ? "daily" : "short_stay");
+    } else if (existing !== (isDaily ? "daily" : "short_stay")) {
+      map.set(dayStr, "both");
+    }
+  }
+  return map;
+}
+
+function MonthCalendar({
+  year, month, bookingDays,
+}: {
+  year: number;
+  month: number;
+  bookingDays: Map<string, DayType>;
+}) {
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfWeek(year, month);
+  const cells: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-semibold text-center mb-1 text-foreground">
+        {THAI_MONTHS[month]}
+      </p>
+      <div className="grid grid-cols-7 gap-0">
+        {THAI_DAYS_SHORT.map((d) => (
+          <div key={d} className="text-[9px] text-center text-muted-foreground pb-0.5 font-medium">
+            {d}
+          </div>
+        ))}
+        {cells.map((day, i) => {
+          if (!day) return <div key={`empty-${i}`} />;
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const type = bookingDays.get(dateStr);
+          return (
+            <div key={day} className="flex items-center justify-center" style={{ height: 20 }}>
+              {type ? (
+                <div
+                  title={type === "both" ? "มีทั้งรายวันและพักสั้น" : type === "daily" ? "พักรายวัน (≥24 ชม.)" : "พักสั้น (<24 ชม.)"}
+                  className={[
+                    "w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold",
+                    type === "daily" ? "bg-emerald-500 text-white" :
+                    type === "short_stay" ? "bg-orange-400 text-white" :
+                    "bg-gradient-to-br from-emerald-500 to-orange-400 text-white",
+                  ].join(" ")}
+                >
+                  {day}
+                </div>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">{day}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function YearlyCalendar({ bookings }: { bookings: Array<{ checkInAt: string; checkOutAt: string }> }) {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const bookingDays = useMemo(() => buildBookingDayMap(bookings), [bookings]);
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="px-6 py-4 border-b border-border/50 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">ปฏิทินการจองประจำปี</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y - 1)}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm font-semibold w-16 text-center">พ.ศ. {toThaiYear(year)}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setYear(y => y + 1)}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 mt-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+            <span className="text-xs text-muted-foreground">พักรายวัน (24 ชม.+)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-orange-400" />
+            <span className="text-xs text-muted-foreground">พักสั้น (น้อยกว่า 24 ชม.)</span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-5">
+          {Array.from({ length: 12 }, (_, m) => (
+            <MonthCalendar key={m} year={year} month={m} bookingDays={bookingDays} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetBookingsSummary({
@@ -28,7 +164,9 @@ export default function Dashboard() {
 
   const filteredBookings = bookings?.filter((b) => {
     const matchesStatus = statusFilter === "all" || b.status === statusFilter;
-    const matchesSearch = b.guestName.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toString() === searchQuery;
+    const matchesSearch =
+      b.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.id.toString() === searchQuery;
     return matchesStatus && matchesSearch;
   });
 
@@ -36,11 +174,11 @@ export default function Dashboard() {
     <Layout>
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
-          
+
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">แดชบอร์ด</h1>
-              <p className="text-muted-foreground mt-1">ภาพรวมการจองและรายได้ของที่พัก</p>
+              <p className="text-muted-foreground mt-1">ภาพรวมการจองของที่พัก</p>
             </div>
             <Link href="/new">
               <Button className="gap-2">
@@ -51,7 +189,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6 flex flex-row items-center gap-4">
                 <div className="bg-primary/10 p-3 rounded-full">
@@ -60,7 +198,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">การจองวันนี้</p>
                   <h3 className="text-2xl font-bold mt-1">
-                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.todayBookings || 0}
+                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.todayBookings ?? 0}
                   </h3>
                 </div>
               </CardContent>
@@ -74,7 +212,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">รอดำเนินการ</p>
                   <h3 className="text-2xl font-bold mt-1">
-                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.pendingCount || 0}
+                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.pendingCount ?? 0}
                   </h3>
                 </div>
               </CardContent>
@@ -88,26 +226,19 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">เช็คเอาต์แล้ว</p>
                   <h3 className="text-2xl font-bold mt-1">
-                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.checkedOutCount || 0}
-                  </h3>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <CardContent className="p-6 flex flex-row items-center gap-4">
-                <div className="bg-primary/20 p-3 rounded-full">
-                  <CircleDollarSign className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-primary">รายได้รวม</p>
-                  <h3 className="text-2xl font-bold mt-1 text-primary-foreground">
-                    {isLoadingSummary ? <Skeleton className="h-8 w-24" /> : formatThaiCurrency(summary?.totalRevenue || 0)}
+                    {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : summary?.checkedOutCount ?? 0}
                   </h3>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Yearly Calendar */}
+          {isLoadingBookings ? (
+            <Skeleton className="h-64 w-full rounded-xl" />
+          ) : (
+            <YearlyCalendar bookings={bookings ?? []} />
+          )}
 
           {/* Bookings Table */}
           <Card className="border-border shadow-sm">
@@ -155,9 +286,7 @@ export default function Dashboard() {
                       <TableHead>ชื่อผู้เช่า</TableHead>
                       <TableHead>เวลาเช็คอิน</TableHead>
                       <TableHead>ระยะเวลาพัก</TableHead>
-                      <TableHead>แพ็กเกจ</TableHead>
                       <TableHead>สถานะ</TableHead>
-                      <TableHead className="text-right">จำนวนเงินรวม</TableHead>
                       <TableHead className="text-right"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -167,24 +296,24 @@ export default function Dashboard() {
                         <TableCell className="font-medium text-muted-foreground">
                           #{booking.id}
                         </TableCell>
-                        <TableCell className="font-medium">ห้อง {booking.roomId.toString().padStart(2, '0')}</TableCell>
+                        <TableCell className="font-medium">
+                          ห้อง {booking.roomId.toString().padStart(2, "0")}
+                        </TableCell>
                         <TableCell className="font-medium">{booking.guestName}</TableCell>
                         <TableCell>{formatThaiDateTime(booking.checkInAt)}</TableCell>
                         <TableCell className="text-muted-foreground tabular-nums">
                           {formatDuration(booking.checkInAt, booking.checkOutAt)}
                         </TableCell>
                         <TableCell>
-                          {booking.packageType === "daily" ? "รายวัน" : "พักสั้น"}
-                        </TableCell>
-                        <TableCell>
                           <StatusBadge status={booking.status} />
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatThaiCurrency(booking.totalPrice)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Link href={`/bookings/${booking.id}`}>
-                            <Button variant="ghost" size="sm" className="text-primary hover:text-primary-foreground hover:bg-primary">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-primary hover:text-primary-foreground hover:bg-primary"
+                            >
                               ดูรายละเอียด
                             </Button>
                           </Link>
@@ -194,10 +323,10 @@ export default function Dashboard() {
                   </TableBody>
                 </Table>
               ) : (
-                <Empty 
-                  icon={FileText} 
-                  title="ไม่พบรายการจอง" 
-                  description="ไม่มีรายการจองที่ตรงกับเงื่อนไขการค้นหาของคุณ" 
+                <Empty
+                  icon={FileText}
+                  title="ไม่พบรายการจอง"
+                  description="ไม่มีรายการจองที่ตรงกับเงื่อนไขการค้นหาของคุณ"
                   className="py-12"
                 />
               )}
