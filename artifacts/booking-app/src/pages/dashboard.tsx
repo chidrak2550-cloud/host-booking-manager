@@ -15,13 +15,10 @@ import { Empty } from "@/components/ui/empty";
 
 const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const THAI_DAYS_SHORT = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+const TOTAL_ROOMS = 5;
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-type DayType = "daily" | "short_stay" | "both";
-
-function toBangkokDateStr(isoStr: string): string {
-  const date = new Date(isoStr);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(date);
-}
+type DayType = "daily" | "short_stay" | "both" | "full";
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -35,24 +32,59 @@ function toThaiYear(year: number): number {
   return year + 543;
 }
 
-interface BookingDay {
-  type: DayType;
-}
+function buildBookingDayMap(
+  bookings: Array<{ checkInAt: string; checkOutAt: string; roomId: number }>,
+): Map<string, DayType> {
+  // Per-day tracking
+  const roomsPerDay = new Map<string, Set<number>>();
+  const hasDailyPerDay = new Map<string, boolean>();
+  const hasShortPerDay = new Map<string, boolean>();
 
-function buildBookingDayMap(bookings: Array<{ checkInAt: string; checkOutAt: string }>): Map<string, DayType> {
-  const map = new Map<string, DayType>();
   for (const b of bookings) {
-    const durationMs = new Date(b.checkOutAt).getTime() - new Date(b.checkInAt).getTime();
+    const checkIn = new Date(b.checkInAt);
+    const checkOut = new Date(b.checkOutAt);
+    const durationMs = checkOut.getTime() - checkIn.getTime();
     const isDaily = durationMs >= 24 * 60 * 60 * 1000;
-    const dayStr = toBangkokDateStr(b.checkInAt);
-    const existing = map.get(dayStr);
-    if (!existing) {
-      map.set(dayStr, isDaily ? "daily" : "short_stay");
-    } else if (existing !== (isDaily ? "daily" : "short_stay")) {
-      map.set(dayStr, "both");
+
+    // Convert to Bangkok time for day boundary calculations
+    const startBkk = new Date(checkIn.getTime() + BANGKOK_OFFSET_MS);
+    const endBkk = new Date(checkOut.getTime() + BANGKOK_OFFSET_MS);
+
+    // Iterate over every calendar day the booking overlaps (in Bangkok timezone)
+    const firstDay = new Date(Date.UTC(startBkk.getUTCFullYear(), startBkk.getUTCMonth(), startBkk.getUTCDate()));
+    const lastDay = new Date(Date.UTC(endBkk.getUTCFullYear(), endBkk.getUTCMonth(), endBkk.getUTCDate()));
+    const endExactMidnight = endBkk.getUTCHours() === 0 && endBkk.getUTCMinutes() === 0 && endBkk.getUTCSeconds() === 0;
+
+    let cur = firstDay.getTime();
+    const limit = endExactMidnight ? lastDay.getTime() : lastDay.getTime() + 1;
+
+    while (cur < limit) {
+      const d = new Date(cur);
+      const dayStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+
+      if (!roomsPerDay.has(dayStr)) roomsPerDay.set(dayStr, new Set());
+      roomsPerDay.get(dayStr)!.add(b.roomId);
+      if (isDaily) hasDailyPerDay.set(dayStr, true);
+      else hasShortPerDay.set(dayStr, true);
+
+      cur += 24 * 60 * 60 * 1000;
     }
   }
-  return map;
+
+  const result = new Map<string, DayType>();
+  for (const dayStr of roomsPerDay.keys()) {
+    const rooms = roomsPerDay.get(dayStr)!;
+    if (rooms.size >= TOTAL_ROOMS) {
+      result.set(dayStr, "full");
+    } else {
+      const hasDaily = hasDailyPerDay.get(dayStr) ?? false;
+      const hasShort = hasShortPerDay.get(dayStr) ?? false;
+      if (hasDaily && hasShort) result.set(dayStr, "both");
+      else if (hasDaily) result.set(dayStr, "daily");
+      else result.set(dayStr, "short_stay");
+    }
+  }
+  return result;
 }
 
 function MonthCalendar({
@@ -87,9 +119,15 @@ function MonthCalendar({
             <div key={day} className="flex items-center justify-center" style={{ height: 20 }}>
               {type ? (
                 <div
-                  title={type === "both" ? "มีทั้งรายวันและพักสั้น" : type === "daily" ? "พักรายวัน (≥24 ชม.)" : "พักสั้น (<24 ชม.)"}
+                  title={
+                    type === "full" ? "ห้องพักเต็มทุกห้อง (5/5 ห้อง)" :
+                    type === "both" ? "มีทั้งรายวันและพักสั้น" :
+                    type === "daily" ? "พักรายวัน (≥24 ชม.)" :
+                    "พักสั้น (<24 ชม.)"
+                  }
                   className={[
                     "w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold",
+                    type === "full" ? "bg-purple-600 text-white" :
                     type === "daily" ? "bg-emerald-500 text-white" :
                     type === "short_stay" ? "bg-orange-400 text-white" :
                     "bg-gradient-to-br from-emerald-500 to-orange-400 text-white",
@@ -128,7 +166,7 @@ function YearlyCalendar({ bookings }: { bookings: Array<{ checkInAt: string; che
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-4 mt-2">
+        <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-2">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm bg-emerald-500" />
             <span className="text-xs text-muted-foreground">พักรายวัน (24 ชม.+)</span>
@@ -136,6 +174,10 @@ function YearlyCalendar({ bookings }: { bookings: Array<{ checkInAt: string; che
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm bg-orange-400" />
             <span className="text-xs text-muted-foreground">พักสั้น (น้อยกว่า 24 ชม.)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-purple-600" />
+            <span className="text-xs text-muted-foreground">เต็มทุกห้อง (5/5 ห้อง)</span>
           </div>
         </div>
       </CardHeader>

@@ -17,7 +17,51 @@ import { useToast } from "@/hooks/use-toast";
 import { calculatePricing, formatThaiCurrency, ROOMS } from "@/lib/utils-booking";
 import { useCreateBooking, getListBookingsQueryKey, getGetBookingsSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, ReceiptText, DoorOpen, UserPlus } from "lucide-react";
+import { ArrowLeft, Save, ReceiptText } from "lucide-react";
+
+function playSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const play = (freq: number, start: number, dur: number, vol = 0.25) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    play(523, 0, 0.15);
+    play(659, 0.12, 0.15);
+    play(784, 0.24, 0.35);
+    play(1047, 0.36, 0.5, 0.2);
+  } catch (_) {}
+}
+
+function playErrorSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const play = (freq: number, start: number, dur: number, vol = 0.3) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    play(330, 0, 0.25);
+    play(294, 0.28, 0.35);
+  } catch (_) {}
+}
 
 const bookingSchema = z.object({
   roomId: z.coerce.number().min(1).max(5),
@@ -69,28 +113,34 @@ export default function NewBooking() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetBookingsSummaryQueryKey() });
+        playSuccessSound();
         toast({
-          title: "สร้างการจองสำเร็จ",
-          description: "บันทึกข้อมูลการจองใหม่เรียบร้อยแล้ว",
+          title: "บันทึกการจองสำเร็จ",
+          description: "สร้างการจองใหม่เรียบร้อยแล้ว ระบบได้บันทึกข้อมูลเรียบร้อย",
+          duration: 5000,
         });
         setLocation("/");
       },
       onError: (err: any) => {
-        if (err.message?.includes('409') || err.message?.includes('ซ้อนทับ')) {
+        const status = (err as any)?.response?.status ?? (err as any)?.status;
+        const msg: string = (err as any)?.response?.data?.message ?? (err as any)?.message ?? "";
+        if (status === 409 || msg.includes("ซ้อนทับ") || msg.includes("conflict")) {
+          playErrorSound();
           toast({
             variant: "destructive",
-            title: "ห้องไม่ว่าง",
-            description: "ห้องนี้มีการจองซ้อนทับในช่วงเวลาที่เลือก กรุณาเลือกห้องอื่นหรือเวลาอื่น",
+            title: "ไม่สามารถจองได้ — ห้องไม่ว่าง",
+            description: "ห้องนี้มีการจองซ้อนทับกับช่วงเวลาที่เลือกอยู่แล้ว การจองเดิมได้รับสิทธิ์ก่อน กรุณาเลือกห้องอื่นหรือเวลาอื่น",
+            duration: 8000,
           });
         } else {
           toast({
             variant: "destructive",
             title: "เกิดข้อผิดพลาด",
-            description: err.message || "ไม่สามารถสร้างการจองได้",
+            description: msg || "ไม่สามารถสร้างการจองได้",
           });
         }
-      }
-    }
+      },
+    },
   });
 
   const checkInAt = form.watch("checkInAt");
