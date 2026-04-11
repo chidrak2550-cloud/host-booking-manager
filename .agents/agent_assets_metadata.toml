@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "S_LuXxNEUHznEntd9d1Uz"
+uri = "file://artifacts/booking-mobile/assets/images/icon.png"
+type = "image"
+title = "booking-app-icon"
